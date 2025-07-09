@@ -1,0 +1,70 @@
+---
+description: 'Next.js App Router + Tailwind + Flowbite + Stylus coding conventions'
+globs:
+  - app/**/*.{js,ts,tsx}
+  - components/**/*.{js,ts,tsx}
+alwaysApply: true
+---
+
+## Code Style & Structure
+- Follow Standard.js: 2 space indent, single‑quotes, no semicolons, use `===`
+- Use functional components only and PascalCase naming
+- One exported component per file; helpers/subcomponents below
+- Variables/functions use camelCase
+
+## React & Next.js App Router
+- Default to Server Components
+- Add `'use client'` only when needed (hooks, DOM, events)
+- Co‑locate components in `app/route/...`
+- Use route groups and shared layouts
+- Prefer async server actions for forms/mutations
+- Early guard clauses; avoid nested `if`/`else`
+
+## Hooks & State Management
+- Use hooks: `useState`, `useEffect`, `useMemo`, `useCallback`
+- Extract reusable logic into custom hooks
+- Use Zustand for global state
+- Lift state up or use context only when necessary
+
+## Styling (Tailwind + Flowbite + Stylus)
+- Tailwind for layout, spacing, typography, responsiveness
+- Flowbite for accessible UI components (modals, dropdowns)
+- Stylus CSS Modules for component-specific styling (`*.module.styl`)
+  - Use variables, mixins, `&` nesting
+  - Avoid deep nesting and `@apply`
+- Keep Tailwind vs Stylus responsibilities clear
+
+## Performance Optimization
+- Minimize use of `'use client'`
+- Use dynamic import + `Suspense` for client components
+- Optimize images with `next/image`, WebP, explicit width/height
+- Use `useMemo`/`useCallback` to avoid rerenders
+- Purge unused styles in production (Tailwind)
+
+## Forms & Validation
+- Use controlled inputs and `react-hook-form`
+- Validate with Zod via `@hookform/resolvers`
+- Prefer server actions for submission
+- Show clear validation errors; disable submit during `isSubmitting`
+
+## Error Handling & Accessibility
+- Use guard clauses; handle errors early
+- Implement error boundaries
+- Use semantic HTML and ARIA attributes
+- Ensure keyboard navigation for interactive components
+
+## Testing & Internationalization
+- Write unit tests with Jest + React Testing Library
+- Integration tests for critical flows
+- Use `next-intl` or `next-i18next`
+- Store translations in JSON or `.po` files
+- Avoid hardcoded strings in JSX
+
+## Routing & URL State
+- Use file-based routes; handle 404 in `app/not‑found.js`
+- Use Nuqs for URL search params
+
+## Web Vitals & Hydration
+- Prioritize LCP, avoid layout shifts
+- Use `font-display: swap`
+- Minimize client-side hydration for static content
