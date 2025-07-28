@@ -8,6 +8,7 @@ import Image from 'next/image'
 import { jwtDecode } from 'jwt-decode'
 import { StarOutlined, QuestionCircleOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
+import ContactList from './components/ContactList'
 
 const { Header, Content, Footer } = Layout
 
@@ -69,19 +70,24 @@ export default function Home() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#fff', padding: '0 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)' }}>
-        {/* Logo bên trái */}
+      <Header
+        style={{
+          background: '#fff',
+          padding: '0 24px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+        }}
+      >
         <Link href="/">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {/* <Image src="/next.svg" alt="Logo" width={40} height={20} /> */}
             <span style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>Vivy</span>
           </div>
         </Link>
-
-        {/* Avatar / Button bên phải */}
+  
         <div style={{ marginLeft: 'auto' }}>
           {userLoading ? (
-            // Hiển thị placeholder khi đang tải trạng thái user
             <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f0f0' }}></div>
           ) : user ? (
             <UserDropdown user={user} onLogout={handleLogout} />
@@ -93,12 +99,20 @@ export default function Home() {
           )}
         </div>
       </Header>
-      <Content style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-        <main style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, width: '100%', maxWidth: '800px' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '16px' }}>Chào mừng bạn đến với MyApp!</h1>
-          <p>Đây là trang chủ. Bạn đã đăng nhập thành công.</p>
-        </main>
+  
+      <Content style={{ flex: 1, display: 'flex' }}>
+        <div style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <main style={{ width: '100%', maxWidth: '800px' }}>
+            <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '16px' }}>Chào mừng bạn đến với MyApp!</h1>
+            <p>Đây là trang chủ. Bạn đã đăng nhập thành công.</p>
+          </main>
+        </div>
+  
+        {/* ContactList ở bên phải */}
+        <div style={{ width: '300px', borderLeft: '1px solid #ddd' }}>
+          <ContactList />
+        </div>
       </Content>
     </Layout>
-  )
+  )  
 }
