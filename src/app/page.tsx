@@ -1,30 +1,18 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { Layout, Menu, Avatar, Button, Dropdown, Space, Card, Table, List } from 'antd'
-import { UserOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons'
+﻿'use client'
+import { Layout, Avatar, Button, Dropdown, Space } from 'antd'
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons'
 import Link from 'next/link'
-import Image from 'next/image'
-import { jwtDecode } from 'jwt-decode'
-import { StarOutlined, QuestionCircleOutlined } from '@ant-design/icons'
-import { useRouter } from 'next/navigation'
-import ContactList from './components/ContactList'
+import { QuestionCircleOutlined } from '@ant-design/icons'
+import ContactList from '@/components/ContactList'
+import { useAuth } from '@/context/AuthContext'
 
-const { Header, Content, Footer } = Layout
+const { Header, Content } = Layout
 
-type JwtPayload = {
-  email?: string
-  username?: string
-}
-
-function UserDropdown({ user, onLogout }: { user: { email: string } | null, onLogout: () => void }) {
+function UserDropdown({ user, onLogout }: { user: { username: string } | null, onLogout: () => void }) {
   if (!user) return null
 
   const menuItems = [
-    { key: 'email', disabled: true, icon: <UserOutlined />, label: user.email },
-    { type: 'divider' as const },
-    { key: 'upgrade', icon: <StarOutlined />, label: 'Nâng cấp gói' },
-    { key: 'customize', icon: <SettingOutlined />, label: 'Tuỳ chỉnh tài khoản' },
+    { key: 'username', disabled: true, icon: <UserOutlined />, label: user.username },
     { type: 'divider' as const },
     { key: 'help', icon: <QuestionCircleOutlined />, label: 'Trợ giúp' },
     { type: 'divider' as const },
@@ -43,30 +31,13 @@ function UserDropdown({ user, onLogout }: { user: { email: string } | null, onLo
 }
 
 export default function Home() {
-  const [user, setUser] = useState<{ email: string } | null>(null)
-  const [userLoading, setUserLoading] = useState(true) // Thêm state userLoading
-  const router = useRouter() // Get router instance
-
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (token) {
-      try {
-        const decoded = jwtDecode<JwtPayload>(token)
-        setUser({ email: decoded.email || decoded.username || 'User' })
-      } catch {
-        setUser({ email: 'User' })
-      }
-    } else {
-      setUser(null)
-    }
-    setUserLoading(false) // Đặt userLoading thành false sau khi kiểm tra token
-  }, [])
+    const { user, isAuthenticated, loading: userLoading, logout } = useAuth()
+  if (!isAuthenticated || !user) return <div>Please login to view this page.</div>;
 
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refresh_token')
-    router.push('/login') // Chuyển hướng đến trang login sau khi logout
-  }
+    logout();
+  };
+
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -90,7 +61,7 @@ export default function Home() {
           {userLoading ? (
             <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f0f0f0' }}></div>
           ) : user ? (
-            <UserDropdown user={user} onLogout={handleLogout} />
+            <UserDropdown user={{ username: user.username || '' }} onLogout={handleLogout} />
           ) : (
             <Space>
               <Link href="/login"><Button type="primary">Login</Button></Link>
@@ -108,7 +79,6 @@ export default function Home() {
           </main>
         </div>
   
-        {/* ContactList ở bên phải */}
         <div style={{ width: '300px', borderLeft: '1px solid #ddd' }}>
           <ContactList />
         </div>
