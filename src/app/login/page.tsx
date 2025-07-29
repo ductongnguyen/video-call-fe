@@ -11,7 +11,6 @@ import { LoginForm, ProFormText } from "@ant-design/pro-components";
 import { Space, App, Typography } from "antd";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { apiBaseUrl } from "@/lib/config";
 import { jwtDecode } from "jwt-decode";
 
 // Cookie utility functions

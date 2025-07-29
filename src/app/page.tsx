@@ -5,7 +5,10 @@ import Link from 'next/link'
 import { QuestionCircleOutlined } from '@ant-design/icons'
 import ContactList from '@/components/ContactList'
 import { useAuth } from '@/context/AuthContext'
-
+import { useSignalingSocket } from '@/hooks/useSignalingSocket'
+import { wsNotificationsUrl } from '@/lib/config'
+import { CallEvent, callChannel } from '@/utils/callChannel'
+import { useEffect } from 'react'
 const { Header, Content } = Layout
 
 function UserDropdown({ user, onLogout }: { user: { username: string } | null, onLogout: () => void }) {
@@ -37,6 +40,52 @@ export default function Home() {
   const handleLogout = () => {
     logout();
   };
+
+  const { send } = useSignalingSocket(`${wsNotificationsUrl}?user_id=${user.id}`, {
+    onIncomingCall: (data) => {
+      const w = 400;
+      const h = 500;
+      const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX;
+      const dualScreenTop = window.screenTop !== undefined ? window.screenTop : window.screenY;
+      const width = window.innerWidth
+      const height = window.innerHeight
+      const left = ((width / 2) - (w / 2)) + dualScreenLeft;
+      const top = ((height / 2) - (h / 2)) + dualScreenTop;
+      
+      window.open(`/call?callId=${data.callId}&name=${'Caller'}&role=callee`, '_blank', `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`)
+    },
+    onCallAccepted: (data) => {
+      const eventToBroadcast: CallEvent  = { type: 'call_connected' };
+      callChannel.postMessage(eventToBroadcast);
+    },
+    onCallDeclined: (data) => {
+      const eventToBroadcast: CallEvent  = { type: 'call_ended_by_user' };
+      callChannel.postMessage(eventToBroadcast);
+    }
+  })
+
+  useEffect(() => {
+    const handleChannelCommand = (event: MessageEvent<CallEvent>) => {
+      const command = event.data;
+      console.log('HomePage received command from channel:', command);
+      switch (command.type) {
+        case 'accept_call':
+          send('accept_call', { callId: command.payload.callId });
+          break;
+        
+        case 'decline_call':
+          send('decline_call', { callId: command.payload.callId });
+          break;
+      }
+    };
+
+    callChannel.addEventListener('message', handleChannelCommand);
+
+    return () => {
+      callChannel.removeEventListener('message', handleChannelCommand);
+    };
+  }, [send]);
+  
 
 
   return (

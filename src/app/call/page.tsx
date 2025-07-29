@@ -10,7 +10,7 @@ import {
     SettingOutlined,
     MessageOutlined,
 } from "@ant-design/icons";
-
+import { callChannel, CallEvent } from '@/utils/callChannel';
 
 const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -20,12 +20,46 @@ const formatDuration = (seconds: number) => {
     return `${mins}:${secs}`;
 };
 
+
 const CallWindowPage = () => {
     const searchParams = useSearchParams();
     const name = searchParams.get("name") || "Trương Huyền Hân";
+    const role = searchParams.get("role") || 'caller';
+    const [status, setStatus] = useState(role === 'callee' ? 'incoming' : 'connecting');
+    const callId = searchParams.get("callId");
 
     const [duration, setDuration] = useState(0);
     const [isCallConnected, setIsCallConnected] = useState(false);
+
+    useEffect(() => {
+        const handleChannelMessage = (event: MessageEvent<CallEvent>) => {
+            const { type } = event.data;
+            switch (type) {
+                case 'call_connected':
+                    setIsCallConnected(true);
+                    break;
+
+                case 'call_ended_by_user':
+                    window.close();
+                    break;
+                
+                case 'accept_call':
+                    setStatus('connecting');
+                    break;
+                
+                case 'decline_call':
+                    window.close();
+                    break;
+            }
+        };
+
+        callChannel.addEventListener('message', handleChannelMessage);
+
+        return () => {
+            callChannel.removeEventListener('message', handleChannelMessage);
+        };
+    }, []);
+    
 
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -35,15 +69,21 @@ const CallWindowPage = () => {
         return () => clearInterval(timer);
     }, [isCallConnected]);
 
-    useEffect(() => {
-        const connectionTimer = setTimeout(() => {
-            setIsCallConnected(true);
-        }, 2000);
 
-        return () => clearTimeout(connectionTimer);
-    }, []);
+
+    const handleAccept = () => {
+        if (!callId) return;
+        console.log('CallPage: Broadcasting ACCEPT_CALL command');
+        const command: CallEvent = { type: 'accept_call', payload: { callId } };
+        callChannel.postMessage(command);
+        setStatus('connecting');
+    };
 
     const handleCancel = () => {
+        if (!callId) return;
+        console.log('CallPage: Broadcasting DECLINE_CALL command');
+        const command: CallEvent = { type: 'decline_call', payload: { callId } };
+        callChannel.postMessage(command);
         window.close();
     };
 
@@ -93,25 +133,50 @@ const CallWindowPage = () => {
                 </div>
 
                 <div className="flex gap-6 sm:gap-8 lg:gap-10 items-center justify-center mb-4 sm:mb-6 lg:mb-8">
-                    <Button
-                        shape="circle"
-                        size="large"
-                        icon={<AudioOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
-                        className="bg-[#2f57ef] text-white flex items-center justify-center p-0"
-                    />
-                    <Button
-                        shape="circle"
-                        size="large"
-                        icon={<VideoCameraOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
-                        className="bg-[#2f57ef] text-white flex items-center justify-center p-0"
-                    />
-                    <Button
-                        shape="circle"
-                        size="large"
-                        icon={<PhoneOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
-                        className="bg-red-500 text-white flex items-center justify-center p-0"
-                        onClick={handleCancel}
-                    />
+
+                    {status === 'incoming' ? (
+                        <>
+                            <Button
+                                shape="circle"
+                                size="large"
+                                icon={<PhoneOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
+                                className="bg-green-500 text-white flex items-center justify-center p-0"
+                                onClick={handleAccept}
+                            />
+                            <Button
+                                shape="circle"
+                                size="large"
+                                icon={<PhoneOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
+                                className="bg-red-500 text-white flex items-center justify-center p-0"
+                                onClick={handleCancel}
+                            />
+                        </>
+                    ) : (
+                        <>
+                            <Button
+                                shape="circle"
+                                size="large"
+                                icon={<AudioOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
+                                className="bg-[#2f57ef] text-white flex items-center justify-center p-0"
+                            />
+                            <Button
+                                shape="circle"
+                                size="large"
+                                icon={<VideoCameraOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
+                                className="bg-[#2f57ef] text-white flex items-center justify-center p-0"
+                            />
+                            <Button
+                                shape="circle"
+                                size="large"
+                                icon={<PhoneOutlined className="text-xl sm:text-2xl lg:text-3xl" />}
+                                className="bg-red-500 text-white flex items-center justify-center p-0"
+                                onClick={handleCancel}
+                            />
+
+                        </>
+
+
+                    )}
                 </div>
             </div>
         </div >

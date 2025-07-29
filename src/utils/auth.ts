@@ -43,7 +43,7 @@ export const refreshTokenAPI = async (): Promise<string> => {
     const res = await fetch(`${apiBaseUrl}/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ refresh_token:refreshToken }),
     });
 
     const data: RefreshResponse = await res.json();

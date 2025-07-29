@@ -46,19 +46,20 @@ const ContactList = () => {
     const left = ((width / 2) - (w / 2)) + dualScreenLeft;
     const top = ((height / 2) - (h / 2)) + dualScreenTop;
       
-    const res = await apiClient('/call', {
+    const res = await apiClient('/signaling/call', {
       method: 'POST',
       body: JSON.stringify({
-        callerId: user?.id,
-        calleeId: callee.id,
+        caller_id: user?.id,
+        callee_id: callee.id,
       }),
       headers: {
         'Content-Type': 'application/json',
       }
     })
     const callResponse : CallResponse = await res.json()
+    console.log(callResponse.call.id)
     window.open(
-      `/call?callId=${callResponse.call.id}`,
+      `/call?callId=${callResponse.call.id}&name=${callee.username}&role=caller`,
       '_blank',
       `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`
     );
