@@ -1,4 +1,5 @@
-﻿'use client'
+﻿//home page
+'use client'
 import { Layout, Avatar, Button, Dropdown, Space } from 'antd'
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons'
 import Link from 'next/link'
@@ -51,8 +52,7 @@ export default function Home() {
       const height = window.innerHeight
       const left = ((width / 2) - (w / 2)) + dualScreenLeft;
       const top = ((height / 2) - (h / 2)) + dualScreenTop;
-      console.log(data)
-      window.open(`/call?callId=${data.callId}&name=${'Caller'}&role=callee`, '_blank', `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`)
+      window.open(`/call?callId=${data.callId}&otherUserId=${data.callerId}&name=${'Caller'}&role=callee`, '_blank', `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`)
     },
     onCallAccepted: (data) => {
       const eventToBroadcast: CallEvent  = { type: 'call_connected', payload: { callId: data.callId, startTime: data.startTime } };
@@ -80,6 +80,16 @@ export default function Home() {
         case 'end_call':
           send('end_call', { callId: command.payload.callId });
           break;
+        
+        case 'send_webrtc_offer':
+            send('webrtc_offer', { targetId: command.payload.targetId, payload: command.payload.offer });
+            break;
+        case 'send_webrtc_answer':
+            send('webrtc_answer', { targetId: command.payload.targetId, payload: command.payload.answer });
+            break;
+        case 'send_ice_candidate':
+            send('ice_candidate', { targetId: command.payload.targetId, payload: command.payload.candidate });
+            break;
       }
     };
 

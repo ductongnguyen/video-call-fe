@@ -1,6 +1,7 @@
 // hooks/useSignalingSocket.ts
 'use client'
 import { useEffect, useRef, useCallback } from 'react'
+import { callChannel } from '@/utils/callChannel'
 
 type EventHandler = (data: any) => void
 
@@ -8,9 +9,6 @@ type Handlers = {
   onIncomingCall?: EventHandler
   onCallAccepted?: EventHandler
   onCallDeclined?: EventHandler
-  onWebRTCOffer?: EventHandler
-  onWebRTCAnswer?: EventHandler
-  onWebRTCIceCandidate?: EventHandler
 }
 
 export const useSignalingSocket = (url: string, handlers: Handlers = {}) => {
@@ -53,14 +51,14 @@ export const useSignalingSocket = (url: string, handlers: Handlers = {}) => {
               currentHandlers.onCallDeclined?.(data)
               break
             case 'webrtc_offer':
-              currentHandlers.onWebRTCOffer?.(data)
-              break
+                callChannel.postMessage({ type: 'webrtc_offer_received', payload: data.payload });
+                break;
             case 'webrtc_answer':
-              currentHandlers.onWebRTCAnswer?.(data)
-              break
+                callChannel.postMessage({ type: 'webrtc_answer_received', payload: data.payload });
+                break;
             case 'ice_candidate':
-              currentHandlers.onWebRTCIceCandidate?.(data)
-              break
+                callChannel.postMessage({ type: 'webrtc_ice_candidate_received', payload: data.payload });
+                break;
             default:
               console.warn('Unhandled event:', evt)
           }
@@ -69,7 +67,10 @@ export const useSignalingSocket = (url: string, handlers: Handlers = {}) => {
         }
       }
 
-    return () => socket.close()
+      return () => {
+        console.log("Cleanup function in useSignalingSocket is being called. Closing socket.");
+        socket.close();
+    }
   }, [url])
 
   return { send }

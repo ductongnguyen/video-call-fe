@@ -57,9 +57,8 @@ const ContactList = () => {
       }
     })
     const callResponse : CallResponse = await res.json()
-    console.log(callResponse.call.id)
     window.open(
-      `/call?callId=${callResponse.call.id}&name=${callee.username}&role=caller`,
+      `/call?callId=${callResponse.call.id}&otherUserId=${callee.id}&name=${callee.username}&role=caller`,
       '_blank',
       `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`
     );
