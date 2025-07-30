@@ -21,8 +21,9 @@ export const callChannel = getCallChannel();
 
 export type CallEvent =
     //Home -> Call
-    | { type: 'call_connected' }
+    | { type: 'call_connected' , payload: { callId: string, startTime : string } }
     | { type: 'call_ended_by_user' }
     //Call -> Home
     | { type: 'accept_call', payload: { callId: string } }
+    | { type: 'end_call', payload: { callId: string } }
     | { type: 'decline_call', payload: { callId: string } }  

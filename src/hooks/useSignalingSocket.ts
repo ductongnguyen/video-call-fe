@@ -8,11 +8,17 @@ type Handlers = {
   onIncomingCall?: EventHandler
   onCallAccepted?: EventHandler
   onCallDeclined?: EventHandler
+  onWebRTCOffer?: EventHandler
+  onWebRTCAnswer?: EventHandler
+  onWebRTCIceCandidate?: EventHandler
 }
 
 export const useSignalingSocket = (url: string, handlers: Handlers = {}) => {
   const socketRef = useRef<WebSocket | null>(null)
-
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  }, [handlers]);
   const send = useCallback((event: string, payloadData: any = {}) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       const messageToSend = {
@@ -31,15 +37,29 @@ export const useSignalingSocket = (url: string, handlers: Handlers = {}) => {
 
           const raw = JSON.parse(event.data)
           const { event: evt, data } = raw
+          const currentHandlers = handlersRef.current;
+
           switch (evt) {
             case 'incoming_call':
-              handlers.onIncomingCall?.(data)
+              currentHandlers.onIncomingCall?.(data)
               break
             case 'call_accepted':
-              handlers.onCallAccepted?.(data)
+              currentHandlers.onCallAccepted?.(data)
               break
             case 'call_declined':
-              handlers.onCallDeclined?.(data)
+              currentHandlers.onCallDeclined?.(data)
+              break
+            case 'call_ended':
+              currentHandlers.onCallDeclined?.(data)
+              break
+            case 'webrtc_offer':
+              currentHandlers.onWebRTCOffer?.(data)
+              break
+            case 'webrtc_answer':
+              currentHandlers.onWebRTCAnswer?.(data)
+              break
+            case 'ice_candidate':
+              currentHandlers.onWebRTCIceCandidate?.(data)
               break
             default:
               console.warn('Unhandled event:', evt)

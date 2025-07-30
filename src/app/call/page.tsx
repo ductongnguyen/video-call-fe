@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { callChannel, CallEvent } from '@/utils/callChannel';
 
+
 const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
         .toString()
@@ -27,6 +28,7 @@ const CallWindowPage = () => {
     const role = searchParams.get("role") || 'caller';
     const [status, setStatus] = useState(role === 'callee' ? 'incoming' : 'connecting');
     const callId = searchParams.get("callId");
+    const [startTime, setStartTime] = useState<string | null>(null);
 
     const [duration, setDuration] = useState(0);
     const [isCallConnected, setIsCallConnected] = useState(false);
@@ -34,9 +36,11 @@ const CallWindowPage = () => {
     useEffect(() => {
         const handleChannelMessage = (event: MessageEvent<CallEvent>) => {
             const { type } = event.data;
+
             switch (type) {
                 case 'call_connected':
                     setIsCallConnected(true);
+                    setStartTime(event.data.payload.startTime);
                     break;
 
                 case 'call_ended_by_user':
@@ -62,18 +66,22 @@ const CallWindowPage = () => {
     
 
     useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (isCallConnected) {
-            timer = setInterval(() => setDuration((prev) => prev + 1), 1000);
+        if (!isCallConnected || !startTime) {
+            return;
         }
+
+        const timer = setInterval(() => {
+            const elapsedMilliseconds = Date.now() - new Date(startTime).getTime();
+            const elapsedSeconds = Math.floor(elapsedMilliseconds / 1000);
+            setDuration(elapsedSeconds);
+        }, 1000);
         return () => clearInterval(timer);
-    }, [isCallConnected]);
+    }, [isCallConnected,startTime]);
 
 
 
     const handleAccept = () => {
         if (!callId) return;
-        console.log('CallPage: Broadcasting ACCEPT_CALL command');
         const command: CallEvent = { type: 'accept_call', payload: { callId } };
         callChannel.postMessage(command);
         setStatus('connecting');
@@ -81,8 +89,8 @@ const CallWindowPage = () => {
 
     const handleCancel = () => {
         if (!callId) return;
-        console.log('CallPage: Broadcasting DECLINE_CALL command');
-        const command: CallEvent = { type: 'decline_call', payload: { callId } };
+        var type : CallEvent['type'] = !isCallConnected ? 'decline_call' : 'end_call';
+        const command: CallEvent = { type: type, payload: { callId } };
         callChannel.postMessage(command);
         window.close();
     };
@@ -100,7 +108,7 @@ const CallWindowPage = () => {
                             )}&background=random`}
                         />
                         <div className="text-gray-500 text-lg animate-pulse">
-                            Đang kết nối...
+                            {status === 'incoming' ? 'Đang chờ kết nối...' : 'Đang kết nối...'}
                         </div>
                     </div>
                 ) : (
