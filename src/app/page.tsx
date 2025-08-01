@@ -4,12 +4,10 @@ import { Layout, Avatar, Button, Dropdown, Space } from 'antd'
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { QuestionCircleOutlined } from '@ant-design/icons'
-import ContactList from '@/components/ContactList'
 import { useAuth } from '@/context/AuthContext'
-import { useSignalingSocket } from '@/hooks/useSignalingSocket'
-import { wsNotificationsUrl } from '@/lib/config'
-import { CallEvent, callChannel } from '@/utils/callChannel'
-import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import { apiClient } from '@/utils/apiClient'
 const { Header, Content } = Layout
 
 function UserDropdown({ user, onLogout }: { user: { username: string } | null, onLogout: () => void }) {
@@ -36,71 +34,26 @@ function UserDropdown({ user, onLogout }: { user: { username: string } | null, o
 
 export default function Home() {
     const { user, isAuthenticated, loading: userLoading, logout } = useAuth()
-  if (!isAuthenticated || !user) return <div>Please login to view this page.</div>;
+    const router = useRouter()
+    const [roomId, setRoomId] = useState('');
 
+  if (!isAuthenticated || !user) return (
+    router.push('/login')
+  )
   const handleLogout = () => {
     logout();
   };
-
-  const { send } = useSignalingSocket(`${wsNotificationsUrl}?user_id=${user.id}`, {
-    onIncomingCall: (data) => {
-      const w = 400;
-      const h = 500;
-      const dualScreenLeft = window.screenLeft !== undefined ? window.screenLeft : window.screenX;
-      const dualScreenTop = window.screenTop !== undefined ? window.screenTop : window.screenY;
-      const width = window.innerWidth
-      const height = window.innerHeight
-      const left = ((width / 2) - (w / 2)) + dualScreenLeft;
-      const top = ((height / 2) - (h / 2)) + dualScreenTop;
-      window.open(`/call?callId=${data.callId}&otherUserId=${data.callerId}&name=${'Caller'}&role=callee`, '_blank', `popup=yes,width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,location=no,status=no`)
-    },
-    onCallAccepted: (data) => {
-      const eventToBroadcast: CallEvent  = { type: 'call_connected', payload: { callId: data.callId, startTime: data.startTime } };
-      callChannel.postMessage(eventToBroadcast);
-    },
-    onCallDeclined: (data) => {
-      const eventToBroadcast: CallEvent  = { type: 'call_ended_by_user' };
-      callChannel.postMessage(eventToBroadcast);
-    },
-  
-  })
-
-  useEffect(() => {
-    const handleChannelCommand = (event: MessageEvent<CallEvent>) => {
-      const command = event.data;
-      switch (command.type) {
-        case 'accept_call':
-          send('accept_call', { callId: command.payload.callId });
-          break;
-        
-        case 'decline_call':
-          send('decline_call', { callId: command.payload.callId });
-          break;
-        
-        case 'end_call':
-          send('end_call', { callId: command.payload.callId });
-          break;
-        
-        case 'send_webrtc_offer':
-            send('webrtc_offer', { targetId: command.payload.targetId, payload: command.payload.offer });
-            break;
-        case 'send_webrtc_answer':
-            send('webrtc_answer', { targetId: command.payload.targetId, payload: command.payload.answer });
-            break;
-        case 'send_ice_candidate':
-            send('ice_candidate', { targetId: command.payload.targetId, payload: command.payload.candidate });
-            break;
-      }
-    };
-
-    callChannel.addEventListener('message', handleChannelCommand);
-
-    return () => {
-      callChannel.removeEventListener('message', handleChannelCommand);
-    };
-  }, [send]);
-  
-
+  const createAndJoin = async () => {
+   const res = await apiClient("/signaling/call", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    const result = await res.json()
+    const roomId = result.room_id
+    window.open(`/room/${roomId}`, '_blank');
+  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -139,11 +92,8 @@ export default function Home() {
           <main style={{ width: '100%', maxWidth: '800px' }}>
             <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '16px' }}>Chào mừng bạn đến với MyApp!</h1>
             <p>Đây là trang chủ. Bạn đã đăng nhập thành công.</p>
+            <Button type="primary" onClick={createAndJoin}>Start a meeting</Button>
           </main>
-        </div>
-  
-        <div style={{ width: '300px', borderLeft: '1px solid #ddd' }}>
-          <ContactList />
         </div>
       </Content>
     </Layout>
