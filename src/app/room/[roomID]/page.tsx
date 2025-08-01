@@ -3,8 +3,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, Row, Col, Typography, Spin, Alert, Button } from 'antd';
-import { AudioMutedOutlined, AudioOutlined, VideoCameraOutlined, StopOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Typography, Spin, Alert, Button, Avatar } from 'antd';
+import { AudioMutedOutlined, AudioOutlined, VideoCameraOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
 import { useAuth } from '@/context/AuthContext';
 import { wsNotificationsUrl } from '@/lib/config';
 const { Title } = Typography;
@@ -31,12 +31,12 @@ export default function RoomPage() {
 
     useEffect(() => {
         const getMedia = async () => {
-            let stream: MediaStream | undefined;
+            let stream: MediaStream;
             let hasVideoInitially = true;
             try {
                 // 1. Ưu tiên lấy cả video và audio
                 console.log("Attempting to get video and audio stream...");
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 stream.getAudioTracks().forEach(track => (track.enabled = !isMuted));
                 stream.getVideoTracks().forEach(track => (track.enabled = !isVideoOff));
                 userStreamRef.current = stream;
@@ -53,6 +53,12 @@ export default function RoomPage() {
                     try {
                         // 3. Thử lại chỉ với audio
                         stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                        stream.getAudioTracks().forEach(track => (track.enabled = !isMuted));
+                        userStreamRef.current = stream;
+
+                        stream.getTracks().forEach(track => {
+                            peerConnectionsRef.current.forEach(pc => pc.addTrack(track, stream));
+                        });
                     } catch (audioError: any) {
                         // Nếu cả audio cũng không được, đây là lỗi nghiêm trọng
                         console.error("Could not get audio stream either.", audioError);
@@ -256,60 +262,113 @@ export default function RoomPage() {
         setIsVideoOff(prev => !prev);
     };
 
+    const getGridLayoutClass = (participantCount: number): string => {
+        if (participantCount <= 1) return 'grid-cols-1';
+        if (participantCount === 2) return 'grid-cols-2';
+        if (participantCount <= 4) return 'grid-cols-2';
+        if (participantCount <= 6) return 'grid-cols-3';
+        if (participantCount <= 9) return 'grid-cols-3';
+        return 'grid-cols-4';
+    };
+
 
     return (
-        <div style={{ padding: '24px', background: '#f0f2f5', minHeight: '100vh' }}>
-            <Title level={2}>Room: <span style={{ color: '#1890ff' }}>{roomID}</span> | User: <span style={{ color: '#1890ff' }}>{user?.id}</span></Title>
-
+        <div className="min-h-screen bg-gray-100 p-6">
+            {/* Status Alert */}
             {status !== 'connected' && (
-                <Alert
-                    message={status.charAt(0).toUpperCase() + status.slice(1)}
-                    description={
-                        status === 'connecting' ? 'Attempting to connect to the room...' :
+                <div className="mb-6">
+                    <Alert
+                        message={status.charAt(0).toUpperCase() + status.slice(1)}
+                        description={
+                            status === 'connecting' ? 'Attempting to connect to the room...' :
                             status === 'error' ? 'A connection error occurred.' :
-                                'You have been disconnected.'
-                    }
-                    type={status === 'connecting' ? 'info' : 'error'}
-                    showIcon
-                    icon={status === 'connecting' && <Spin />}
-                    style={{ marginBottom: '24px' }}
-                />
+                            'You have been disconnected.'
+                        }
+                        type={status === 'connecting' ? 'info' : 'error'}
+                        showIcon
+                        icon={status === 'connecting' && <Spin />}
+                    />
+                </div>
             )}
 
-            <Row gutter={[16, 16]}>
-                Your Video
-                <Col xs={24} md={12} lg={8}>
-                    <Card title="You" style={{ padding: 0 }}>
-                        <video ref={userVideoRef} autoPlay playsInline muted style={{ width: '100%', display: 'block' }} />
-                        <div style={{ padding: '12px', display: 'flex', justifyContent: 'center', gap: '16px' }}>
-                            <Button icon={isMuted ? <AudioMutedOutlined /> : <AudioOutlined />} onClick={toggleAudio} danger={isMuted}>
-                                {isMuted ? 'Unmute' : 'Mute'}
-                            </Button>
-                            <Button icon={isVideoOff ? <StopOutlined /> : <VideoCameraOutlined />} onClick={toggleVideo} danger={isVideoOff}>
-                                {isVideoOff ? 'Cam On' : 'Cam Off'}
-                            </Button>
-                        </div>
-                    </Card>
-                </Col>
-
-                {/* Remote Videos */}
-                {Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
-                    <Col key={peerId} xs={24} md={12} lg={8}>
-                        <Card title={`Peer: ${peerId}`} style={{ padding: 0 }}>
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col h-[calc(100vh-180px)] p-2">
+                {/* Videos Grid */}
+                <div className={`grid gap-2 flex-1 w-full h-full ${getGridLayoutClass(remoteStreams.size + 1)}`}>
+                    {/* Local Video */}
+                    <div className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+                        <Card
+                            title="You"
+                            className="h-full w-full flex flex-col p-0"
+                        >
                             <video
+                                ref={userVideoRef}
                                 autoPlay
                                 playsInline
-                                style={{ width: '100%', display: 'block' }}
-                                ref={video => {
-                                    if (video && video.srcObject !== stream) {
-                                        video.srcObject = stream;
-                                    }
-                                }}
+                                muted
+                                className="w-full h-full object-cover"
                             />
                         </Card>
-                    </Col>
-                ))}
-            </Row>
+                    </div>
+
+                    {/* Remote Videos */}
+                    {Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
+                        <div key={peerId} className="relative w-full h-full bg-black rounded-lg overflow-hidden">
+                            <Card
+                                title={`Peer: ${peerId}`}
+                                className="h-full w-full flex flex-col p-0"
+                            >
+                                     {stream && stream.getVideoTracks().length > 0 ? (
+                                        <video
+                                            autoPlay
+                                            playsInline
+                                            className="w-full h-full object-cover"
+                                            ref={video => {
+                                                if (video && video.srcObject !== stream) {
+                                                    video.srcObject = stream;
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+  
+                                            <div className="w-full h-full flex items-center justify-center">
+                                                <div className="w-1/2 aspect-square flex items-center justify-center">
+                                                    <Avatar 
+                                                        icon={<UserOutlined />} 
+                                                        className="bg-blue-500 w-full h-full"
+                                                    />
+                                                </div>
+                                            </div>
+                                    )}
+                            </Card>
+                        </div>
+                    ))}
+                </div>
+
+
+            </div>
+
+            {/* Controls */}
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 flex justify-center gap-4">
+                <Button
+                    size="large"
+                    icon={isMuted ? <AudioMutedOutlined /> : <AudioOutlined />}
+                    onClick={toggleAudio}
+                    danger={isMuted}
+                    className="flex items-center gap-2 px-6"
+                >
+                    {isMuted ? 'Unmute' : 'Mute'}
+                </Button>
+                <Button
+                    size="large"
+                    icon={isVideoOff ? <StopOutlined /> : <VideoCameraOutlined />}
+                    onClick={toggleVideo}
+                    danger={isVideoOff}
+                    className="flex items-center gap-2 px-6"
+                >
+                    {isVideoOff ? 'Cam On' : 'Cam Off'}
+                </Button>
+            </div>
         </div>
     );
 }
