@@ -5,7 +5,7 @@ import { UserOutlined, LogoutOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { QuestionCircleOutlined } from '@ant-design/icons'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { redirect, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { apiClient } from '@/utils/apiClient'
 const { Header, Content } = Layout
@@ -35,10 +35,10 @@ function UserDropdown({ user, onLogout }: { user: { username: string } | null, o
 export default function Home() {
     const { user, isAuthenticated, loading: userLoading, logout } = useAuth()
     const router = useRouter()
-    const [roomId, setRoomId] = useState('');
+    const [roomId, setRoomId] = useState<string | null>();
 
   if (!isAuthenticated || !user) return (
-    router.push('/login')
+    redirect('/login')
   )
   const handleLogout = () => {
     logout();

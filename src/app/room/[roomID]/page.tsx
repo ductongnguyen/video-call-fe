@@ -18,16 +18,18 @@ export default function RoomPage() {
     const { user } = useAuth();
 
     // State cho UI
-    const [status, setStatus] = useState('connecting');
+    const [status, setStatus] = useState<string>('connecting');
     const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
-    const [isMuted, setIsMuted] = useState(false);
-    const [isVideoOff, setIsVideoOff] = useState(false);
+    const [isMuted, setIsMuted] = useState<boolean>(false);
+    const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
 
     // Refs để lưu trữ các đối tượng không cần render lại
     const userVideoRef = useRef<HTMLVideoElement>(null);
     const userStreamRef = useRef<MediaStream>(null);
     const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
     const webSocketRef = useRef<WebSocket>(null);
+    // NEW: Queue for messages sent before WebSocket is ready
+    const messageQueueRef = useRef<Array<{ event: string; data: any }>>([]);
 
     useEffect(() => {
         const getMedia = async () => {
@@ -92,6 +94,14 @@ export default function RoomPage() {
             webSocketRef.current.onopen = () => {
                 console.log("WebSocket connection established.");
                 setStatus('connected');
+                
+                // NEW: Send any queued messages
+                while (messageQueueRef.current.length > 0) {
+                    const queuedMessage = messageQueueRef.current.shift();
+                    if (queuedMessage && webSocketRef.current?.readyState === WebSocket.OPEN) {
+                        webSocketRef.current.send(JSON.stringify(queuedMessage));
+                    }
+                }
             };
 
             webSocketRef.current.onmessage = (event) => {
@@ -106,6 +116,7 @@ export default function RoomPage() {
 
             webSocketRef.current.onerror = (error) => {
                 console.error("WebSocket error:", error);
+                console.log("I'm here");
                 setStatus('error');
             };
         };
@@ -155,9 +166,17 @@ export default function RoomPage() {
         }
     };
 
+    // UPDATED: Check WebSocket state before sending
     const sendMessageToServer = (event: string, data: any) => {
         const message = { event, data };
-        webSocketRef.current?.send(JSON.stringify(message));
+        
+        if (webSocketRef.current?.readyState === WebSocket.OPEN) {
+            webSocketRef.current.send(JSON.stringify(message));
+        } else {
+            // Queue the message if WebSocket is not ready
+            console.warn('WebSocket not ready, queuing message:', event);
+            messageQueueRef.current.push(message);
+        }
     };
 
     const createPeerConnection = (peerId: string) => {
@@ -238,9 +257,7 @@ export default function RoomPage() {
     };
 
     const toggleAudio = () => {
-
         peerConnectionsRef.current.forEach((pc) => {
-
             pc.getSenders().forEach(sender => {
                 if (sender.track?.kind === 'audio') {
                     sender.track.enabled = !sender.track.enabled;
@@ -249,7 +266,6 @@ export default function RoomPage() {
         });
         setIsMuted(prev => !prev);
     };
-
 
     const toggleVideo = () => {
         peerConnectionsRef.current.forEach((pc) => {
@@ -270,7 +286,6 @@ export default function RoomPage() {
         if (participantCount <= 9) return 'grid-cols-3';
         return 'grid-cols-4';
     };
-
 
     return (
         <div className="min-h-screen bg-gray-100 p-6">
@@ -318,34 +333,31 @@ export default function RoomPage() {
                                 title={`Peer: ${peerId}`}
                                 className="h-full w-full flex flex-col p-0"
                             >
-                                     {stream && stream.getVideoTracks().length > 0 ? (
-                                        <video
-                                            autoPlay
-                                            playsInline
-                                            className="w-full h-full object-cover"
-                                            ref={video => {
-                                                if (video && video.srcObject !== stream) {
-                                                    video.srcObject = stream;
-                                                }
-                                            }}
-                                        />
-                                    ) : (
-  
-                                            <div className="w-full h-full flex items-center justify-center">
-                                                <div className="w-1/2 aspect-square flex items-center justify-center">
-                                                    <Avatar 
-                                                        icon={<UserOutlined />} 
-                                                        className="bg-blue-500 w-full h-full"
-                                                    />
-                                                </div>
-                                            </div>
-                                    )}
+                                {stream && stream.getVideoTracks().length > 0 ? (
+                                    <video
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                        ref={video => {
+                                            if (video && video.srcObject !== stream) {
+                                                video.srcObject = stream;
+                                            }
+                                        }}
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                        <div className="w-1/2 aspect-square flex items-center justify-center">
+                                            <Avatar 
+                                                icon={<UserOutlined />} 
+                                                className="bg-blue-500 w-full h-full"
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </Card>
                         </div>
                     ))}
                 </div>
-
-
             </div>
 
             {/* Controls */}
