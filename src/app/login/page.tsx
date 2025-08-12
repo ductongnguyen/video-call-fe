@@ -10,7 +10,7 @@ import {
 import { LoginForm, ProFormText } from "@ant-design/pro-components";
 import { Space, App, Typography } from "antd";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { redirect, useRouter } from "next/navigation";
 import { jwtDecode } from "jwt-decode";
 
 // Cookie utility functions
@@ -142,7 +142,7 @@ export default function Login() {
             message.success("Login successful!");
 
             setTimeout(() => {
-              router.push("/");
+              redirect("/")
             }, REDIRECT_DELAY_MS);
 
           } catch (error) {
