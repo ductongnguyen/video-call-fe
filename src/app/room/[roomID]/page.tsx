@@ -9,34 +9,40 @@ import { useAuth } from '@/context/AuthContext';
 import { wsNotificationsUrl } from '@/lib/config';
 const { Title } = Typography;
 
-// Định nghĩa cấu hình STUN server
-const STUN_SERVER = "stun:stun.l.google.com:19302";
+
+const servers = {
+    iceServers: [
+      {
+        urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+      },
+    ],
+    iceCandidatePoolSize: 10,
+}
 
 export default function RoomPage() {
     const params = useParams();
     const { roomID } = params;
     const { user } = useAuth();
 
-    // State cho UI
     const [status, setStatus] = useState<string>('connecting');
     const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
     const [isMuted, setIsMuted] = useState<boolean>(false);
     const [isVideoOff, setIsVideoOff] = useState<boolean>(false);
+    const hasJoinedRef = useRef(false);
 
-    // Refs để lưu trữ các đối tượng không cần render lại
     const userVideoRef = useRef<HTMLVideoElement>(null);
     const userStreamRef = useRef<MediaStream>(null);
     const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
     const webSocketRef = useRef<WebSocket>(null);
-    // NEW: Queue for messages sent before WebSocket is ready
     const messageQueueRef = useRef<Array<{ event: string; data: any }>>([]);
 
     useEffect(() => {
+        if (!roomID || !user?.id || hasJoinedRef.current) return;
+        hasJoinedRef.current = true;
         const getMedia = async () => {
             let stream: MediaStream;
             let hasVideoInitially = true;
             try {
-                // 1. Ưu tiên lấy cả video và audio
                 console.log("Attempting to get video and audio stream...");
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
                 stream.getAudioTracks().forEach(track => (track.enabled = !isMuted));
@@ -47,13 +53,10 @@ export default function RoomPage() {
                     peerConnectionsRef.current.forEach(pc => pc.addTrack(track, stream));
                 });
             } catch (error: any) {
-                // 2. Xử lý lỗi
                 if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                    // Lỗi phổ biến khi không tìm thấy camera hoặc mic
                     console.warn("Camera not found. Falling back to audio-only.");
                     hasVideoInitially = false;
                     try {
-                        // 3. Thử lại chỉ với audio
                         stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
                         stream.getAudioTracks().forEach(track => (track.enabled = !isMuted));
                         userStreamRef.current = stream;
@@ -62,16 +65,14 @@ export default function RoomPage() {
                             peerConnectionsRef.current.forEach(pc => pc.addTrack(track, stream));
                         });
                     } catch (audioError: any) {
-                        // Nếu cả audio cũng không được, đây là lỗi nghiêm trọng
                         console.error("Could not get audio stream either.", audioError);
                         setStatus('error');
-                        return; // Dừng thực thi
+                        return;
                     }
                 } else {
-                    // 4. Các lỗi khác (ví dụ: người dùng từ chối quyền) là lỗi nghiêm trọng
                     console.error("Error accessing media devices:", error);
                     setStatus('error');
-                    return; // Dừng thực thi
+                    return;
                 }
             }
 
@@ -88,14 +89,15 @@ export default function RoomPage() {
         };
 
         const connectToWebSocket = () => {
+            if (webSocketRef.current && webSocketRef.current.readyState !== WebSocket.CLOSED) {
+                return;
+            }
             const wsURL = `${wsNotificationsUrl}?roomId=${roomID}&userId=${user?.id}`;
             webSocketRef.current = new WebSocket(wsURL);
 
             webSocketRef.current.onopen = () => {
                 console.log("WebSocket connection established.");
                 setStatus('connected');
-                
-                // NEW: Send any queued messages
                 while (messageQueueRef.current.length > 0) {
                     const queuedMessage = messageQueueRef.current.shift();
                     if (queuedMessage && webSocketRef.current?.readyState === WebSocket.OPEN) {
@@ -127,8 +129,9 @@ export default function RoomPage() {
             webSocketRef.current?.close();
             userStreamRef.current?.getTracks().forEach(track => track.stop());
             peerConnectionsRef.current.forEach(pc => pc.close());
+            hasJoinedRef.current = false;
         };
-    }, [roomID, user]);
+    }, [roomID, user?.id]);
 
     const handleServerMessage = (message: any) => {
         const { event, data, senderId } = message;
@@ -166,14 +169,13 @@ export default function RoomPage() {
         }
     };
 
-    // UPDATED: Check WebSocket state before sending
     const sendMessageToServer = (event: string, data: any) => {
         const message = { event, data };
         
         if (webSocketRef.current?.readyState === WebSocket.OPEN) {
             webSocketRef.current.send(JSON.stringify(message));
         } else {
-            // Queue the message if WebSocket is not ready
+            console.log(webSocketRef.current?.readyState)
             console.warn('WebSocket not ready, queuing message:', event);
             messageQueueRef.current.push(message);
         }
@@ -182,7 +184,7 @@ export default function RoomPage() {
     const createPeerConnection = (peerId: string) => {
         if (peerConnectionsRef.current.has(peerId)) return peerConnectionsRef.current.get(peerId)!;
 
-        const pc = new RTCPeerConnection({ iceServers: [{ urls: STUN_SERVER }] });
+        const pc = new RTCPeerConnection(servers);
 
         pc.onicecandidate = (event) => {
             if (event.candidate) {
